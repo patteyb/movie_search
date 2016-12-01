@@ -1,17 +1,20 @@
 $(document).ready(function() {
+    
     var myMovie = {};
     var movies = {};
 
     //------------------------------------------------------------------------------------------
     // EVENT LISTENERS
     //------------------------------------------------------------------------------------------
-    $('#search').on('change', function () {
-        myMovie.s = $(this).val();
-        parseString();
-    });
+    $('.search-form').on('submit', function (e) {
+        e.preventDefault();
+        myMovie.s = $(this.search).val();
 
-    $('#year').on('change', function () {
-        myMovie.y = $(this).val();
+        if ($(this.year).val().length !== 0) {
+            myMovie.y = $(this.year).val();
+        } else {
+            myMovie.y = '';
+        }
         parseString();
     });
 
@@ -33,15 +36,39 @@ $(document).ready(function() {
     // Calls showMovies( data ) to dynamically create html
     //------------------------------------------------------------------------------------------ 
     var getMovie = function(target) {
+
+        // Clear out any previous message
+        $('#total-results').html('');
+
         var url = 'http://www.omdbapi.com/?' + target;
         $.ajax({
-        type: 'GET',
-        url: url,
-        data: { q: 'javascript', format: 'json', pretty: 1 },
-        jsonpCallback: 'jsonp',
-        dataType: 'jsonp'
-        }).then(function (data){
-            showMovies(data, url);
+            type: 'GET',
+            url: url,
+            data: { q: 'javascript', format: 'json', pretty: 1 },
+            jsonpCallback: 'jsonp',
+            dataType: 'jsonp',
+            success: function(data) {
+                showMovies(data, url);
+            },
+            error: function( jqXHR, err) {
+                var msg = '';
+                if (jqXHR.status === 0) {
+                    msg = 'Not connected.\n Verify Network.';
+                } else if (jqXHR.status === 404) {
+                    msg = 'Requested page not found [404]';
+                } else if (jqXHR.status === 500) {
+                    msg = 'Internal Server Error [505].';
+                } else if (err = 'parserror') {
+                    msg = 'Requested JSON parse failed.';
+                } else if (err = 'timeout') {
+                    msg = 'time out error.';
+                } else if (err = 'abort') {
+                    msg = 'Ajax request aborted.';
+                } else {
+                    msg = 'Uncaught error\n' + jqXHR.responseText;
+                }
+                $('#total-results').html(msg);
+            },
         });
     };
 
@@ -57,20 +84,21 @@ $(document).ready(function() {
         var url = '';
         movies = JSON.stringify(data);
         movies = JSON.parse(movies);
-
-        $("#total-results").html("Total number of hits in database: " + movies.totalResults);
         
-        if (movies.Response === false) {
-            html = "<li class='no-movies'><i class='material-icons icon-help'>help_outline</i>No movies found that match: " + title + ".</li>";
-        } else {
-
+        if (movies.Response === 'False') {  // No movies returned
+            html = "<li class='no-movies'><i class='material-icons icon-help'>help_outline</i>No movies found that match title = '" + myMovie.s + "'";
+            if (myMovie.y.length !== 0) {
+                html += " and year = '" + myMovie.y + "'";
+            }
+            html += "</li>";
+        } else {                            // Movies returned
+            $("#total-results").html("Total number of hits in database: " + movies.totalResults);
             for (var i=0; i < movies.Search.length; i++) {
                 url = "movie.html?i=" + movies.Search[i].imdbID;
                 html += getHTML(movies.Search[i], url);
             }
-            $('#movies').html(html);
-            
         }
+        $('#movies').html(html);
     };
 
     //-------------------------------------------------------------------------------------------
